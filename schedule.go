@@ -34,7 +34,7 @@ func (j *Jobs) EveryTenMinutes() *Jobs {
 
 // EveryFifteenMinutes to run a job every 15 minutes
 func (j *Jobs) EveryFifteenMinutes() *Jobs {
-	j.Cron[0] = "*/15"
+	j.Cron = []string{"*/15", "*", "*", "*", "*"}
 	return j
 }
 
@@ -104,7 +104,7 @@ func (j *Jobs) WeeklyOn(time string) *Jobs {
 
 // Monthly to run a job every month
 func (j *Jobs) Monthly() *Jobs {
-	j.Cron = []string{"0", "0", "*", "*/1", "*"}
+	j.Cron = []string{"0", "0", "1", "*/1", "*"}
 	return j
 }
 
@@ -115,19 +115,19 @@ func (j *Jobs) MonthlyOn(time string) *Jobs {
 		log.Fatal("The clock format is wrong")
 	}
 
-	j.Cron = []string{parts[1], parts[0], "*", "*/1", "*"}
+	j.Cron = []string{parts[1], parts[0], "1", "*/1", "*"}
 	return j
 }
 
 // Quarterly to run a job every 6 month
 func (j *Jobs) Quarterly() *Jobs {
-	j.Cron = []string{"0", "0", "*", "*/6", "*"}
+	j.Cron = []string{"0", "0", "1", "*/6", "*"}
 	return j
 }
 
 // Yearly to run a job every 1 year
 func (j *Jobs) Yearly() *Jobs {
-	j.Cron = []string{"0", "0", "*", "*/12", "*"}
+	j.Cron = []string{"0", "0", "1", "*/12", "*"}
 	return j
 }
 
