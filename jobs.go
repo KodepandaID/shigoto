@@ -1,6 +1,7 @@
 package shigoto
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -27,8 +28,6 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 		}
 	} else {
 		if e = callFuncWithParams(j.FuncName, j.JobParams); e != nil {
-			fmt.Println("DISISI")
-			fmt.Println(e)
 			return id, e
 		}
 	}
@@ -47,7 +46,7 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 		SuccessRate: 0,
 		ErrorRate:   0,
 	})
-	if e == nil && len(j.JobParams) > 0 || e.Error() == "Jobs is already registered, use the different job name" && len(j.JobParams) > 0 {
+	if e == nil && len(j.JobParams) > 0 || id != primitive.NilObjectID && len(j.JobParams) > 0 {
 		e = nil
 		e = j.client.InsertTask(id, j.JobParams...)
 	}
@@ -57,6 +56,10 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 
 func callFunc(funcName string) (e error) {
 	f := reflect.ValueOf(funcStorage[funcName])
+	if !f.IsValid() {
+		return errors.New("Function invalid, check your function register")
+	}
+
 	values := f.Call([]reflect.Value{})
 	e = handleErrFunc(values)
 
