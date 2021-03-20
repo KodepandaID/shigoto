@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateMinute(t *testing.T) {
-	str := []string{"*", "1/4", "0", "1", "59", "1,5", "1-5"}
+	str := []string{"*", "*/4", "0", "1", "59", "1-5"}
 	parser := cronparser.New(&cronparser.Parser{
 		Timezone: "Asia/Jakarta",
 	})
@@ -17,6 +17,7 @@ func TestValidateMinute(t *testing.T) {
 	for _, row := range str {
 		expr := []string{row, "*", "*", "*", "*"}
 		if _, e := parser.Parse(expr); e != nil {
+			fmt.Println(expr)
 			t.Error(e)
 			t.Fail()
 		}
@@ -44,7 +45,7 @@ func TestValidateFailMinute(t *testing.T) {
 }
 
 func TestValidateHour(t *testing.T) {
-	str := []string{"*", "1/4", "1-23", "1,2", "0"}
+	str := []string{"*", "*/4", "1-23", "0"}
 	parser := cronparser.New(&cronparser.Parser{
 		Timezone: "Asia/Jakarta",
 	})
@@ -80,7 +81,7 @@ func TestValidateFailHour(t *testing.T) {
 }
 
 func TestValidateDayMonth(t *testing.T) {
-	str := []string{"*", "1/31", "1-31", "1,2"}
+	str := []string{"*", "*/31", "1-31"}
 	parser := cronparser.New(&cronparser.Parser{
 		Timezone: "Asia/Jakarta",
 	})
@@ -150,7 +151,7 @@ func TestValidateFailMonth(t *testing.T) {
 }
 
 func TestValidateWeekday(t *testing.T) {
-	str := []string{"*", "0", "6", "SUN"}
+	str := []string{"*", "0", "6"}
 	parser := cronparser.New(&cronparser.Parser{
 		Timezone: "Asia/Jakarta",
 	})
