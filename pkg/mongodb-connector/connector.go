@@ -70,7 +70,7 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 	c.client.Database(c.DBName).Collection("jobs").FindOne(ctx, bson.M{"job_name": payload.JobName}).Decode(&jobs)
 
 	if jobs["job_name"] == payload.JobName {
-		return primitive.NilObjectID, errors.New("Jobs is already registered, use the different job name")
+		return jobs["_id"].(primitive.ObjectID), errors.New("Jobs is already registered, use the different job name")
 	}
 
 	res, e := c.client.Database(c.DBName).
@@ -123,8 +123,7 @@ func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) err
 	}
 
 	// Update total_task at jobs
-	objID, _ := primitive.ObjectIDFromHex("6055cc5988b1eae7a1d54698")
-	filter := bson.M{"_id": bson.M{"$eq": objID}}
+	filter := bson.M{"_id": bson.M{"$eq": id}}
 	update := bson.M{"$inc": bson.M{"total_task": 1}}
 	c.client.Database(c.DBName).
 		Collection("jobs").UpdateOne(ctx, filter, update)
