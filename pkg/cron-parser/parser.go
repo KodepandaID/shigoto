@@ -38,6 +38,13 @@ func New(p *Parser) Parser {
 	}
 }
 
+func (p *Parser) SetCurrentTime(t time.Time) *Parser {
+	loc, _ := time.LoadLocation(p.Timezone)
+	p.currentTime = t.Local().In(loc)
+
+	return p
+}
+
 // Parse to parsing cron format
 func (p *Parser) Parse(expr []string) (Schedule, error) {
 	var s Schedule
