@@ -20,18 +20,19 @@ type Connector struct {
 }
 
 type JobCollection struct {
-	JobName     string `json:"job_name"`
-	FuncName    string `json:"func_name"`
-	CronFormat  []string
-	NextDate    time.Time
-	TotalTask   int
-	SuccessRate int
-	ErrorRate   int
+	ID          primitive.ObjectID `bson:"_id"`
+	JobName     string             `bson:"job_name"`
+	FuncName    string             `bson:"func_name"`
+	CronFormat  []string           `bson:"cron_format"`
+	NextDate    time.Time          `bson:"next_date"`
+	TotalTask   int                `bson:"total_task"`
+	SuccessRate int                `bson:"success_rate"`
+	ErrorRate   int                `bson:"error_rate"`
 }
 
 type TaskCollection struct {
-	JobId  primitive.ObjectID
-	Params []interface{}
+	JobId  primitive.ObjectID `bson:"job_id"`
+	Params []interface{}      `bson:"params"`
 }
 
 var ctx context.Context
@@ -60,6 +61,21 @@ func (c *Connector) Ping() error {
 	}
 
 	return nil
+}
+
+func (c *Connector) GetJobCollection() ([]JobCollection, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var jobs []JobCollection
+	cursor, e := c.client.Database(c.DBName).Collection("jobs").Find(ctx, bson.M{})
+	if e != nil {
+		return jobs, e
+	}
+	defer cursor.Close(ctx)
+	cursor.All(ctx, &jobs)
+
+	return jobs, nil
 }
 
 func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.ObjectID, error) {
@@ -113,6 +129,22 @@ func (c *Connector) DeleteJobCollection(name string) {
 
 	c.client.Database(c.DBName).Collection("jobs").DeleteOne(ctx, bson.M{"job_name": name})
 	c.client.Database(c.DBName).Collection("tasks").DeleteOne(ctx, bson.M{"job_id": bson.M{"$eq": jobs["_id"].(primitive.ObjectID)}})
+}
+
+func (c *Connector) GetTasks(id primitive.ObjectID) ([]TaskCollection, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var tasks []TaskCollection
+	filter := bson.M{"job_id": bson.M{"$eq": id}}
+	cursor, e := c.client.Database(c.DBName).Collection("tasks").Find(ctx, filter)
+	if e != nil {
+		return tasks, e
+	}
+	defer cursor.Close(ctx)
+	cursor.All(ctx, &tasks)
+
+	return tasks, nil
 }
 
 func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) error {

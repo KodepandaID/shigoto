@@ -46,6 +46,8 @@ func New(c *Config) (*Config, error) {
 		Timezone: c.Timezone,
 	})
 
+	loadJobsFromPersistentStorage(c)
+
 	return c, nil
 }
 
@@ -85,10 +87,43 @@ func (c *Config) Delete(name string) {
 	}
 }
 
-// Run to run a background process to check the tasks
+// Run n a background process to check the tasks
 func (c *Config) Run() {
 	go checkTask(c.Timezone)
 	select {}
+}
+
+func loadJobsFromPersistentStorage(c *Config) {
+	jobs, e := c.client.GetJobCollection()
+	if e != nil {
+		panic(e)
+	}
+
+	for _, job := range jobs {
+		loc, _ := time.LoadLocation(c.Timezone)
+		tnow := time.Now().Local().In(loc)
+		schedule, eFatal := c.parser.SetCurrentTime(tnow).Parse(job.CronFormat)
+		if eFatal != nil {
+			panic(eFatal)
+		}
+
+		tasks, e := c.client.GetTasks(job.ID)
+		if e != nil {
+			panic(e)
+		}
+
+		var newTasks []map[string]interface{}
+		for _, task := range tasks {
+			newTasks = append(newTasks, map[string]interface{}{
+				"id":        task.JobId.Hex(),
+				"job_name":  job.JobName,
+				"func_name": job.FuncName,
+				"params":    task.Params,
+				"cron":      job.CronFormat,
+			})
+		}
+		scheduleStorage[schedule.Next.String()] = newTasks
+	}
 }
 
 func checkTask(timezone string) {
