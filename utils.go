@@ -1,7 +1,6 @@
 package shigoto
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -9,6 +8,8 @@ import (
 	"github.com/KodepandaID/shigoto/pkg/mongodb-connector"
 )
 
+// After creating a new instance, the system will be load task
+// data from persistent storage and added to scheduled storage mapping.
 func loadJobsFromPersistentStorage(c *Config) {
 	jobs, e := c.client.GetJobCollection()
 	if e != nil {
@@ -47,6 +48,8 @@ func loadJobsFromPersistentStorage(c *Config) {
 	}
 }
 
+// checkTask will check available task, if the task available,
+// the task will be running.
 func checkTask(c *Config) {
 	loc, _ := time.LoadLocation(c.Timezone)
 	for {
@@ -101,6 +104,8 @@ func updateNextRun(key, timezone string, cron []string, tasks []map[string]inter
 	return schedule.Next
 }
 
+// updateJob to updating persistent data like total_run, total_error,
+// success_rate and error_rate after running the task.
 func updateJob(c *Config, tnow time.Time, jobName string, e error) {
 	go func() {
 		eInc := 0
@@ -123,7 +128,6 @@ func updateJob(c *Config, tnow time.Time, jobName string, e error) {
 				ErrorRate:   errRate,
 			}, eInc)
 		}
-		fmt.Println("TETEW")
 	}()
 }
 

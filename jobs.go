@@ -101,6 +101,8 @@ func (j *Jobs) storedTask(id primitive.ObjectID, schedule cronparser.Schedule) {
 
 		var sameParams bool
 		for _, task := range ss {
+			// check if the task having the same params,
+			// if they have the same params, it will be ignored.
 			if reflect.DeepEqual(task["params"].([]interface{}), j.JobParams) && task["job_name"].(string) == j.JobName {
 				sameParams = true
 			}
