@@ -3,6 +3,7 @@ package shigoto
 import (
 	"errors"
 	"log"
+	"time"
 
 	cronparser "github.com/KodepandaID/shigoto/pkg/cron-parser"
 	"github.com/KodepandaID/shigoto/pkg/mongodb-connector"
@@ -19,10 +20,8 @@ type Config struct {
 	parser      cronparser.Parser
 }
 
-// function mapping to stored the functions to call
-type funcMapping map[string]interface{}
-
-var funcStorage = funcMapping{}
+var scheduleStorage = make(map[string]interface{})
+var funcStorage = make(map[string]interface{})
 
 // New to create task scheduler instance
 func New(c *Config) (*Config, error) {
@@ -70,4 +69,60 @@ func (c *Config) Command(jobName, funcName string, params ...interface{}) *Jobs 
 // The funcName should be the same with funcName at Command function
 func (c *Config) Register(funcName string, jobFunc interface{}) {
 	funcStorage[funcName] = jobFunc
+}
+
+// Run to run a background process to check the tasks
+func (c *Config) Run() {
+	go checkTask(c.Timezone)
+	select {}
+}
+
+func checkTask(timezone string) {
+	loc, _ := time.LoadLocation(timezone)
+	for {
+		tnow := time.Now().Local().In(loc).String()
+		if scheduleStorage[tnow] != nil {
+			ss := scheduleStorage[tnow].([]map[string]interface{})
+			if len(ss) > 0 {
+				for _, task := range ss {
+					funcName := task["func_name"].(string)
+					params := task["params"].([]interface{})
+					if len(params) == 0 {
+						callFunc(funcName)
+					} else {
+						callFuncWithParams(funcName, params)
+					}
+				}
+				updateNextRun(tnow, timezone, ss[0]["cron"].([]string), ss)
+			}
+		}
+	}
+}
+
+// To create the next schedule after the success running.
+// The old schedule will be removed.
+func updateNextRun(key, timezone string, cron []string, tasks []map[string]interface{}) {
+	delete(scheduleStorage, key)
+
+	parser := cronparser.New(&cronparser.Parser{
+		Timezone: timezone,
+	})
+	loc, _ := time.LoadLocation(timezone)
+	schedule, eFatal := parser.SetCurrentTime(time.Now().Local().In(loc)).Parse(cron)
+	if eFatal != nil {
+		panic(eFatal)
+	}
+
+	var newTasks []map[string]interface{}
+	for _, task := range tasks {
+		newTasks = append(newTasks, map[string]interface{}{
+			"id":        task["id"].(string),
+			"job_name":  task["job_name"].(string),
+			"func_name": task["func_name"].(string),
+			"params":    task["params"].([]interface{}),
+			"cron":      task["cron"].([]string),
+		})
+	}
+
+	scheduleStorage[schedule.Next.String()] = newTasks
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	cronparser "github.com/KodepandaID/shigoto/pkg/cron-parser"
 	"github.com/KodepandaID/shigoto/pkg/mongodb-connector"
@@ -22,33 +23,21 @@ type Jobs struct {
 
 // Do to run a schedule command
 func (j *Jobs) Do() (id primitive.ObjectID, e error) {
-	if len(j.JobParams) == 0 {
-		if e = callFunc(j.FuncName); e != nil {
-			return id, e
-		}
-	} else {
-		if e = callFuncWithParams(j.FuncName, j.JobParams); e != nil {
-			return id, e
-		}
-	}
-
-	schedule, eFatal := j.parser.Parse(j.Cron)
+	schedule, eFatal := j.parser.SetCurrentTime(time.Now()).Parse(j.Cron)
 	if eFatal != nil {
 		panic(eFatal)
 	}
 
 	id, e = j.client.InsertJobCollection(&mongodb.JobCollection{
-		JobName:     j.JobName,
-		FuncName:    j.FuncName,
-		CronFormat:  j.Cron,
-		NextDate:    schedule.Next,
-		TotalTask:   1,
-		SuccessRate: 0,
-		ErrorRate:   0,
+		JobName:    j.JobName,
+		FuncName:   j.FuncName,
+		CronFormat: j.Cron,
+		NextDate:   schedule.Next,
 	})
-	if e == nil && len(j.JobParams) > 0 || id != primitive.NilObjectID && len(j.JobParams) > 0 {
+
+	if id != primitive.NilObjectID && e == nil || id != primitive.NilObjectID && e.Error() == "Jobs is already registered, use the different job name" {
 		e = nil
-		e = j.client.InsertTask(id, j.JobParams...)
+		j.storedTask(id, schedule)
 	}
 
 	return id, e
@@ -88,4 +77,39 @@ func handleErrFunc(values []reflect.Value) (e error) {
 	}
 
 	return e
+}
+
+func (j *Jobs) storedTask(id primitive.ObjectID, schedule cronparser.Schedule) {
+	if scheduleStorage[schedule.Next.String()] == nil {
+		scheduleStorage[schedule.Next.String()] = []map[string]interface{}{
+			{
+				"id":        id.Hex(),
+				"job_name":  j.JobName,
+				"func_name": j.FuncName,
+				"params":    j.JobParams,
+				"cron":      j.Cron,
+			},
+		}
+		j.client.InsertTask(id, j.JobParams...)
+	} else {
+		ss := scheduleStorage[schedule.Next.String()].([]map[string]interface{})
+
+		var sameParams bool
+		for _, task := range ss {
+			if reflect.DeepEqual(task["params"].([]interface{}), j.JobParams) && task["job_name"].(string) == j.JobName {
+				sameParams = true
+			}
+		}
+
+		if !sameParams {
+			ss = append(ss, map[string]interface{}{
+				"id":        id.Hex(),
+				"job_name":  j.JobName,
+				"func_name": j.FuncName,
+				"params":    j.JobParams,
+				"cron":      j.Cron,
+			})
+			j.client.InsertTask(id, j.JobParams...)
+		}
+	}
 }
