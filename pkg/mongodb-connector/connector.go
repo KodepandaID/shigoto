@@ -89,7 +89,7 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 			Value: payload.NextDate,
 		}, {
 			Key:   "total_task",
-			Value: 1,
+			Value: 0,
 		}, {
 			Key:   "success_rate",
 			Value: 0,
@@ -108,25 +108,31 @@ func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) err
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	_, e := c.client.Database(c.DBName).
-		Collection("tasks").
-		InsertOne(ctx, bson.D{{
-			Key:   "job_id",
-			Value: id,
-		}, {
-			Key:   "params",
-			Value: params,
-		}})
+	var jobs bson.M
+	filter := bson.M{"params": bson.M{"$eq": params}}
+	c.client.Database(c.DBName).Collection("tasks").FindOne(ctx, filter).Decode(&jobs)
 
-	if e != nil {
-		return e
+	if jobs["_id"].(primitive.ObjectID) == primitive.NilObjectID {
+		_, e := c.client.Database(c.DBName).
+			Collection("tasks").
+			InsertOne(ctx, bson.D{{
+				Key:   "job_id",
+				Value: id,
+			}, {
+				Key:   "params",
+				Value: params,
+			}})
+
+		if e != nil {
+			return e
+		}
+
+		// Update total_task at jobs
+		filter = bson.M{"_id": bson.M{"$eq": id}}
+		update := bson.M{"$inc": bson.M{"total_task": 1}}
+		c.client.Database(c.DBName).
+			Collection("jobs").UpdateOne(ctx, filter, update)
 	}
-
-	// Update total_task at jobs
-	filter := bson.M{"_id": bson.M{"$eq": id}}
-	update := bson.M{"$inc": bson.M{"total_task": 1}}
-	c.client.Database(c.DBName).
-		Collection("jobs").UpdateOne(ctx, filter, update)
 
 	return nil
 }
