@@ -28,11 +28,17 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 		panic(eFatal)
 	}
 
+	totalTask := 0
+	if len(j.JobParams) > 0 {
+		totalTask = 1
+	}
+
 	id, e = j.client.InsertJobCollection(&mongodb.JobCollection{
 		JobName:    j.JobName,
 		FuncName:   j.FuncName,
 		CronFormat: j.Cron,
 		NextDate:   schedule.Next,
+		TotalTask:  totalTask,
 	})
 
 	if id != primitive.NilObjectID && e == nil || id != primitive.NilObjectID && e.Error() == "Jobs is already registered, use the different job name" {

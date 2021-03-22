@@ -71,6 +71,20 @@ func (c *Config) Register(funcName string, jobFunc interface{}) {
 	funcStorage[funcName] = jobFunc
 }
 
+// Delete to remove job from instance and persistent storage
+func (c *Config) Delete(name string) {
+	for key, jobs := range scheduleStorage {
+		j := jobs.([]map[string]interface{})
+		for index, task := range j {
+			if name == task["job_name"].(string) {
+				j = append(j[:index], j[index+1:]...)
+				c.client.DeleteJobCollection(name)
+			}
+		}
+		scheduleStorage[key] = j
+	}
+}
+
 // Run to run a background process to check the tasks
 func (c *Config) Run() {
 	go checkTask(c.Timezone)

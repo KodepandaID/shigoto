@@ -27,6 +27,7 @@ func main() {
 	client.Register("helloWorld", helloWorld)
 	client.Command("run-hello", "hello", "usman").EveryMinute().Do()
 	client.Command("run-hello-world", "helloWorld").EveryMinute().Do()
+	client.Delete("run-hello")
 	client.Run()
 }
 

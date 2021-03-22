@@ -89,7 +89,7 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 			Value: payload.NextDate,
 		}, {
 			Key:   "total_task",
-			Value: 0,
+			Value: payload.TotalTask,
 		}, {
 			Key:   "success_rate",
 			Value: 0,
@@ -104,6 +104,17 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 	return res.InsertedID.(primitive.ObjectID), nil
 }
 
+func (c *Connector) DeleteJobCollection(name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var jobs bson.M
+	c.client.Database(c.DBName).Collection("jobs").FindOne(ctx, bson.M{"job_name": name}).Decode(&jobs)
+
+	c.client.Database(c.DBName).Collection("jobs").DeleteOne(ctx, bson.M{"job_name": name})
+	c.client.Database(c.DBName).Collection("tasks").DeleteOne(ctx, bson.M{"job_id": bson.M{"$eq": jobs["_id"].(primitive.ObjectID)}})
+}
+
 func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -112,8 +123,8 @@ func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) err
 	filter := bson.M{"params": bson.M{"$eq": params}}
 	c.client.Database(c.DBName).Collection("tasks").FindOne(ctx, filter).Decode(&jobs)
 
-	if jobs["_id"].(primitive.ObjectID) == primitive.NilObjectID {
-		_, e := c.client.Database(c.DBName).
+	if jobs == nil {
+		if _, e := c.client.Database(c.DBName).
 			Collection("tasks").
 			InsertOne(ctx, bson.D{{
 				Key:   "job_id",
@@ -121,16 +132,15 @@ func (c *Connector) InsertTask(id primitive.ObjectID, params ...interface{}) err
 			}, {
 				Key:   "params",
 				Value: params,
-			}})
-
-		if e != nil {
+			}}); e != nil {
 			return e
 		}
 
 		// Update total_task at jobs
 		filter = bson.M{"_id": bson.M{"$eq": id}}
 		update := bson.M{"$inc": bson.M{"total_task": 1}}
-		c.client.Database(c.DBName).
+		c.client.
+			Database(c.DBName).
 			Collection("jobs").UpdateOne(ctx, filter, update)
 	}
 
