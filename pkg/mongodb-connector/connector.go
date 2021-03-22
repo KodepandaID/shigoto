@@ -26,8 +26,10 @@ type JobCollection struct {
 	CronFormat  []string           `bson:"cron_format"`
 	NextDate    time.Time          `bson:"next_date"`
 	TotalTask   int                `bson:"total_task"`
-	SuccessRate int                `bson:"success_rate"`
-	ErrorRate   int                `bson:"error_rate"`
+	TotalRun    int                `bson:"total_run"`
+	TotalError  int                `bson:"total_error"`
+	SuccessRate float64            `bson:"success_rate"`
+	ErrorRate   float64            `bson:"error_rate"`
 }
 
 type TaskCollection struct {
@@ -56,11 +58,9 @@ func (c *Connector) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	if e := c.client.Ping(ctx, readpref.Primary()); e != nil {
-		return e
-	}
+	e := c.client.Ping(ctx, readpref.Primary())
 
-	return nil
+	return e
 }
 
 func (c *Connector) GetJobCollection() ([]JobCollection, error) {
@@ -76,6 +76,16 @@ func (c *Connector) GetJobCollection() ([]JobCollection, error) {
 	cursor.All(ctx, &jobs)
 
 	return jobs, nil
+}
+
+func (c *Connector) GetOneJobCollection(name string) (JobCollection, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var jobs JobCollection
+	e := c.client.Database(c.DBName).Collection("jobs").FindOne(ctx, bson.M{"job_name": name}).Decode(&jobs)
+
+	return jobs, e
 }
 
 func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.ObjectID, error) {
@@ -101,11 +111,17 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 			Key:   "cron_format",
 			Value: payload.CronFormat,
 		}, {
-			Key:   "next_date",
-			Value: payload.NextDate,
-		}, {
 			Key:   "total_task",
 			Value: payload.TotalTask,
+		}, {
+			Key:   "total_run",
+			Value: 0,
+		}, {
+			Key:   "total_error",
+			Value: 0,
+		}, {
+			Key:   "next_date",
+			Value: payload.NextDate,
 		}, {
 			Key:   "success_rate",
 			Value: 0,
@@ -118,6 +134,24 @@ func (c *Connector) InsertJobCollection(payload *JobCollection) (primitive.Objec
 	}
 
 	return res.InsertedID.(primitive.ObjectID), nil
+}
+
+func (c *Connector) UpdateJobCollection(id primitive.ObjectID, payload *JobCollection, e int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	filter := bson.M{"_id": bson.M{"$eq": id}}
+	update := bson.M{
+		"$inc": bson.M{"total_run": 1, "total_error": e},
+		"$set": bson.M{
+			"next_date":    payload.NextDate,
+			"success_rate": payload.SuccessRate,
+			"error_rate":   payload.ErrorRate,
+		},
+	}
+	c.client.
+		Database(c.DBName).
+		Collection("jobs").UpdateOne(ctx, filter, update)
 }
 
 func (c *Connector) DeleteJobCollection(name string) {

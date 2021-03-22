@@ -37,7 +37,6 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 		JobName:    j.JobName,
 		FuncName:   j.FuncName,
 		CronFormat: j.Cron,
-		NextDate:   schedule.Next,
 		TotalTask:  totalTask,
 	})
 
