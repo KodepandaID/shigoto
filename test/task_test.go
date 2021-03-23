@@ -143,7 +143,7 @@ func TestRun(t *testing.T) {
 	client, e := shigoto.New(&shigoto.Config{
 		DB:      os.Getenv("MONGO_URI"),
 		DBName:  "jobs-scheduler",
-		Timeout: time.Minute,
+		Timeout: time.Minute * 2,
 	})
 	if e != nil {
 		t.Fatal(e)
