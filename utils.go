@@ -10,7 +10,7 @@ import (
 
 // After creating a new instance, the system will be load task
 // data from persistent storage and added to scheduled storage mapping.
-func loadJobsFromPersistentStorage(c *Config) {
+func LoadJobsFromPersistentStorage(c *Config) {
 	jobs, e := c.client.GetJobCollection()
 	if e != nil {
 		panic(e)
@@ -34,18 +34,48 @@ func loadJobsFromPersistentStorage(c *Config) {
 			panic(e)
 		}
 
-		var newTasks []map[string]interface{}
 		for _, task := range tasks {
-			newTasks = append(newTasks, map[string]interface{}{
-				"id":        task.JobId.Hex(),
-				"job_name":  job.JobName,
-				"func_name": job.FuncName,
-				"params":    task.Params,
-				"cron":      job.CronFormat,
-			})
+			if ScheduleStorage[nextDate.String()] == nil {
+				ScheduleStorage[nextDate.String()] = []map[string]interface{}{
+					{
+						"id":        task.JobId.Hex(),
+						"job_name":  job.JobName,
+						"func_name": job.FuncName,
+						"params":    task.Params,
+						"cron":      job.CronFormat,
+					},
+				}
+			} else {
+				ss := ScheduleStorage[nextDate.String()].([]map[string]interface{})
+				_, match := checkSameJobName(job.JobName, ss)
+				if !match {
+					ScheduleStorage[nextDate.String()] = append(ss, map[string]interface{}{
+						"id":        task.JobId.Hex(),
+						"job_name":  job.JobName,
+						"func_name": job.FuncName,
+						"params":    task.Params,
+						"cron":      job.CronFormat,
+					})
+				}
+			}
 		}
-		scheduleStorage[nextDate.String()] = newTasks
 	}
+}
+
+func checkSameJobName(name string, j []map[string]interface{}) ([]map[string]interface{}, bool) {
+	var match bool
+	for index, task := range j {
+		if name == task["job_name"].(string) {
+			if (index + 1) <= len(j) {
+				j = append(j[:index], j[index+1:]...)
+			} else {
+				j = nil
+			}
+			match = true
+		}
+	}
+
+	return j, match
 }
 
 // checkTask will check available task, if the task available,
@@ -54,17 +84,17 @@ func checkTask(c *Config) {
 	loc, _ := time.LoadLocation(c.Timezone)
 	for {
 		tnow := time.Now().Local().In(loc)
-		if scheduleStorage[tnow.String()] != nil {
-			ss := scheduleStorage[tnow.String()].([]map[string]interface{})
+		if ScheduleStorage[tnow.String()] != nil {
+			ss := ScheduleStorage[tnow.String()].([]map[string]interface{})
 			if len(ss) > 0 {
 				var e error
 				for _, task := range ss {
 					funcName := task["func_name"].(string)
 					params := task["params"].([]interface{})
 					if len(params) == 0 {
-						e = callFunc(funcName)
+						e = CallFunc(funcName)
 					} else {
-						e = callFuncWithParams(funcName, params)
+						e = CallFuncWithParams(funcName, params)
 					}
 					updateJob(c, tnow, task["job_name"].(string), e)
 				}
@@ -77,7 +107,7 @@ func checkTask(c *Config) {
 // To create the next schedule after the success running.
 // The old schedule will be removed.
 func updateNextRun(key, timezone string, cron []string, tasks []map[string]interface{}) time.Time {
-	delete(scheduleStorage, key)
+	delete(ScheduleStorage, key)
 
 	parser := cronparser.New(&cronparser.Parser{
 		Timezone: timezone,
@@ -99,7 +129,7 @@ func updateNextRun(key, timezone string, cron []string, tasks []map[string]inter
 		})
 	}
 
-	scheduleStorage[schedule.Next.String()] = newTasks
+	ScheduleStorage[schedule.Next.String()] = newTasks
 
 	return schedule.Next
 }

@@ -3,6 +3,7 @@ package shigoto
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -81,7 +82,10 @@ func (j *Jobs) DailyAt(time string) *Jobs {
 		log.Fatal("The clock format is wrong")
 	}
 
-	j.Cron = []string{parts[1], parts[0], "*/1", "*", "*"}
+	hour, _ := strconv.Atoi(parts[0])
+	minute, _ := strconv.Atoi(parts[1])
+
+	j.Cron = []string{fmt.Sprint(minute), fmt.Sprint(hour), "*/1", "*", "*"}
 	return j
 }
 
@@ -98,7 +102,10 @@ func (j *Jobs) WeeklyOn(time string) *Jobs {
 		log.Fatal("The clock format is wrong")
 	}
 
-	j.Cron = []string{parts[1], parts[0], "*/7", "*", "*"}
+	hour, _ := strconv.Atoi(parts[0])
+	minute, _ := strconv.Atoi(parts[1])
+
+	j.Cron = []string{fmt.Sprint(minute), fmt.Sprint(hour), "*/7", "*", "*"}
 	return j
 }
 
@@ -115,7 +122,10 @@ func (j *Jobs) MonthlyOn(time string) *Jobs {
 		log.Fatal("The clock format is wrong")
 	}
 
-	j.Cron = []string{parts[1], parts[0], "1", "*/1", "*"}
+	hour, _ := strconv.Atoi(parts[0])
+	minute, _ := strconv.Atoi(parts[1])
+
+	j.Cron = []string{fmt.Sprint(minute), fmt.Sprint(hour), "1", "*/1", "*"}
 	return j
 }
 
@@ -128,16 +138,5 @@ func (j *Jobs) Quarterly() *Jobs {
 // Yearly to run a job every 1 year
 func (j *Jobs) Yearly() *Jobs {
 	j.Cron = []string{"0", "0", "1", "*/12", "*"}
-	return j
-}
-
-// YearlyOn to run a job every 1 year with specific month and date
-func (j *Jobs) YearlyOn(month, day int, time string) *Jobs {
-	parts := strings.Split(time, ":")
-	if len(parts) < 2 {
-		log.Fatal("The clock format is wrong")
-	}
-
-	j.Cron = []string{parts[1], parts[0], fmt.Sprintf("%d", day), fmt.Sprintf("%d/12", month), "*"}
 	return j
 }

@@ -28,16 +28,10 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 		panic(eFatal)
 	}
 
-	totalTask := 0
-	if len(j.JobParams) > 0 {
-		totalTask = 1
-	}
-
 	id, e = j.client.InsertJobCollection(&mongodb.JobCollection{
 		JobName:    j.JobName,
 		FuncName:   j.FuncName,
 		CronFormat: j.Cron,
-		TotalTask:  totalTask,
 	})
 
 	if id != primitive.NilObjectID && e == nil || id != primitive.NilObjectID && e.Error() == "Jobs is already registered, use the different job name" {
@@ -48,20 +42,20 @@ func (j *Jobs) Do() (id primitive.ObjectID, e error) {
 	return id, e
 }
 
-func callFunc(funcName string) (e error) {
-	f := reflect.ValueOf(funcStorage[funcName])
+func CallFunc(funcName string) (e error) {
+	f := reflect.ValueOf(FuncStorage[funcName])
 	if !f.IsValid() {
 		return errors.New("Function invalid, check your function register")
 	}
 
 	values := f.Call([]reflect.Value{})
-	e = handleErrFunc(values)
+	e = HandleErrFunc(values)
 
 	return e
 }
 
-func callFuncWithParams(funcName string, params []interface{}) (e error) {
-	f := reflect.ValueOf(funcStorage[funcName])
+func CallFuncWithParams(funcName string, params []interface{}) (e error) {
+	f := reflect.ValueOf(FuncStorage[funcName])
 
 	in := make([]reflect.Value, len(params))
 	for k, param := range params {
@@ -69,12 +63,12 @@ func callFuncWithParams(funcName string, params []interface{}) (e error) {
 	}
 
 	values := f.Call(in)
-	e = handleErrFunc(values)
+	e = HandleErrFunc(values)
 
 	return e
 }
 
-func handleErrFunc(values []reflect.Value) (e error) {
+func HandleErrFunc(values []reflect.Value) (e error) {
 	for i, val := range values {
 		if val.Type().String() == "error" && !val.IsNil() {
 			e = fmt.Errorf("%s", values[i])
@@ -85,8 +79,8 @@ func handleErrFunc(values []reflect.Value) (e error) {
 }
 
 func (j *Jobs) storedTask(id primitive.ObjectID, schedule cronparser.Schedule) {
-	if scheduleStorage[schedule.Next.String()] == nil {
-		scheduleStorage[schedule.Next.String()] = []map[string]interface{}{
+	if ScheduleStorage[schedule.Next.String()] == nil {
+		ScheduleStorage[schedule.Next.String()] = []map[string]interface{}{
 			{
 				"id":        id.Hex(),
 				"job_name":  j.JobName,
@@ -97,7 +91,7 @@ func (j *Jobs) storedTask(id primitive.ObjectID, schedule cronparser.Schedule) {
 		}
 		j.client.InsertTask(id, j.JobParams...)
 	} else {
-		ss := scheduleStorage[schedule.Next.String()].([]map[string]interface{})
+		ss := ScheduleStorage[schedule.Next.String()].([]map[string]interface{})
 
 		var sameParams bool
 		for _, task := range ss {
@@ -116,6 +110,7 @@ func (j *Jobs) storedTask(id primitive.ObjectID, schedule cronparser.Schedule) {
 				"params":    j.JobParams,
 				"cron":      j.Cron,
 			})
+			ScheduleStorage[schedule.Next.String()] = ss
 			j.client.InsertTask(id, j.JobParams...)
 		}
 	}
