@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -17,7 +16,6 @@ func TestValidateMinute(t *testing.T) {
 	for _, row := range str {
 		expr := []string{row, "*", "*", "*", "*"}
 		if _, e := parser.Parse(expr); e != nil {
-			fmt.Println(expr)
 			t.Error(e)
 			t.Fail()
 		}
@@ -53,7 +51,6 @@ func TestValidateHour(t *testing.T) {
 	for _, row := range str {
 		expr := []string{"*", row, "*", "*", "*"}
 		if _, e := parser.Parse(expr); e != nil {
-			fmt.Println(row)
 			t.Error(e)
 			t.Fail()
 		}

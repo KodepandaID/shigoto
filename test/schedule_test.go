@@ -1,7 +1,6 @@
 package test
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,7 +18,7 @@ func init() {
 
 	e := godotenv.Load(p + "/.env")
 	if e != nil {
-		log.Fatal("Error loading .env file")
+		os.Setenv("MONGO_URI", "mongodb://localhost:27017") // for github actions
 	}
 
 	client, _ = shigoto.New(&shigoto.Config{

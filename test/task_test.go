@@ -2,7 +2,6 @@ package test
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +17,7 @@ func init() {
 
 	e := godotenv.Load(p + "/.env")
 	if e != nil {
-		log.Fatal("Error loading .env file")
+		os.Setenv("MONGO_URI", "mongodb://localhost:27017") // for github actions
 	}
 }
 
