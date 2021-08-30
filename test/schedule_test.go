@@ -37,6 +37,16 @@ func TestCronFormat(t *testing.T) {
 	}
 }
 
+func TestAt(t *testing.T) {
+	client.Register("schedule-test", scheduleTest)
+	jobs := client.Command("cron-format", "schedule-test")
+	jobs.At("01:00")
+
+	if !reflect.DeepEqual(jobs.Cron, []string{"0", "1", "*", "*", "*"}) {
+		t.Fail()
+	}
+}
+
 func TestEveryMinute(t *testing.T) {
 	client.Register("schedule-test", scheduleTest)
 	jobs := client.Command("cron-format", "schedule-test")

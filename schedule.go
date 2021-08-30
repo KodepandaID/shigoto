@@ -15,6 +15,20 @@ func (j *Jobs) CronFormat(cron string) *Jobs {
 	return j
 }
 
+// At to run a job at a time
+func (j *Jobs) At(time string) {
+	parts := strings.Split(time, ":")
+	if len(parts) < 2 {
+		log.Fatal("The clock format is wrong")
+	}
+
+	hour, _ := strconv.Atoi(parts[0])
+	minute, _ := strconv.Atoi(parts[1])
+
+	j.Cron[0] = fmt.Sprintf("%d", minute)
+	j.Cron[1] = fmt.Sprintf("%d", hour)
+}
+
 // EveryMinute to run a job every minutes
 func (j *Jobs) EveryMinute() *Jobs {
 	j.Cron = []string{"*", "*", "*", "*", "*"}
